@@ -8,6 +8,10 @@ from types_parser import load_types, save_types
 from limits_parser import build_tag_config
 from config_manager import save_config, load_config
 
+class NoScrollComboBox(QComboBox):
+    def wheelEvent(self, event):
+        event.ignore()
+
 class TypesEditor(QWidget):
     def __init__(self):
         super().__init__()
@@ -49,6 +53,7 @@ class TypesEditor(QWidget):
             "Name", "Nominal", "Lifetime", "Restock", "Min", "QuantMin", "QuantMax", "Cost", "Usage", "Value"
         ])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionMode(QTableWidget.MultiSelection)
         self.table.cellDoubleClicked.connect(self.edit_selected)
         layout.addWidget(self.table)
 
@@ -64,6 +69,10 @@ class TypesEditor(QWidget):
         edit_btn = QPushButton("Edit Selected")
         edit_btn.clicked.connect(lambda: self.edit_selected())
         btn_layout.addWidget(edit_btn)
+
+        batch_btn = QPushButton("Batch Edit Selected")
+        batch_btn.clicked.connect(self.batch_edit_selected)
+        btn_layout.addWidget(batch_btn)
 
         save_btn = QPushButton("Save Types File")
         save_btn.clicked.connect(self.save_types_file)
@@ -116,10 +125,18 @@ class TypesEditor(QWidget):
         selected = row if row is not None else self.table.currentRow()
         if selected < 0 or selected >= len(self.items):
             return
-        item = self.items[selected]
+        self.open_edit_dialog([self.items[selected]])
 
+    def batch_edit_selected(self):
+        selected_rows = set(index.row() for index in self.table.selectedIndexes())
+        if not selected_rows:
+            return
+        selected_items = [self.items[i] for i in selected_rows]
+        self.open_edit_dialog(selected_items, batch=True)
+
+    def open_edit_dialog(self, items, batch=False):
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Edit: {item['name']}")
+        dialog.setWindowTitle("Batch Edit" if batch else f"Edit: {items[0]['name']}")
         dialog.resize(600, 800)
         dialog.setSizeGripEnabled(True)
 
@@ -129,9 +146,11 @@ class TypesEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
 
-        def make_field(label, key):
+        def make_field(label, key=None):
             layout.addWidget(QLabel(label))
-            field = QLineEdit(item[key])
+            field = QLineEdit()
+            if not batch and key:
+                field.setText(items[0].get(key, ""))
             layout.addWidget(field)
             return field
 
@@ -148,52 +167,66 @@ class TypesEditor(QWidget):
         flag_fields = {}
         for i, flag in enumerate(["count_in_cargo", "count_in_hoarder", "count_in_map", "count_in_player", "crafted", "deloot"]):
             cb = QCheckBox(flag)
-            cb.setChecked(item["flags"].get(flag, "0") == "1")
             flags_grid.addWidget(cb, i // 2, i % 2)
             flag_fields[flag] = cb
         layout.addLayout(flags_grid)
 
+        if not batch:
+            for flag, cb in flag_fields.items():
+                cb.setChecked(items[0]["flags"].get(flag, "0") == "1")
+
         layout.addWidget(QLabel("Category"))
-        category_field = QComboBox()
+        category_field = NoScrollComboBox()
         category_field.addItems(self.tag_config.get("categories", []))
         category_field.setEditable(True)
-        category_field.setCurrentText(item["category"])
+        category_field.setMaximumWidth(300)
         layout.addWidget(category_field)
 
-        def make_multiselect_grid(label, options, selected):
+        if not batch:
+            category_field.setCurrentText(items[0]["category"])
+
+        def make_multiselect_grid(label, options):
             layout.addWidget(QLabel(label))
             grid = QGridLayout()
             checkbox_dict = {}
             cols = 3
             for i, opt in enumerate(options):
                 cb = QCheckBox(opt)
-                cb.setChecked(opt in selected)
                 grid.addWidget(cb, i // cols, i % cols)
                 checkbox_dict[opt] = cb
             layout.addLayout(grid)
             return checkbox_dict
 
-        usage_checks = make_multiselect_grid("Usage Tags", self.tag_config.get("usage", []), item["usage"])
-        value_checks = make_multiselect_grid("Value Tags", self.tag_config.get("value", []), item["value"])
-        tag_checks = make_multiselect_grid("Tag Names", self.tag_config.get("tags", []), item["tags"])
+        usage_checks = make_multiselect_grid("Usage Tags", self.tag_config.get("usage", []))
+        value_checks = make_multiselect_grid("Value Tags", self.tag_config.get("value", []))
+        tag_checks = make_multiselect_grid("Tag Names", self.tag_config.get("tags", []))
+
+        if not batch:
+            for tag, cb in usage_checks.items():
+                cb.setChecked(tag in items[0]["usage"])
+            for tag, cb in value_checks.items():
+                cb.setChecked(tag in items[0]["value"])
+            for tag, cb in tag_checks.items():
+                cb.setChecked(tag in items[0]["tags"])
 
         def apply_changes():
-            item["nominal"] = nominal_field.text()
-            item["lifetime"] = lifetime_field.text()
-            item["restock"] = restock_field.text()
-            item["min"] = min_field.text()
-            item["quantmin"] = quantmin_field.text()
-            item["quantmax"] = quantmax_field.text()
-            item["cost"] = cost_field.text()
-            item["flags"] = {flag: "1" if cb.isChecked() else "0" for flag, cb in flag_fields.items()}
-            item["category"] = category_field.currentText()
-            item["usage"] = [tag for tag, cb in usage_checks.items() if cb.isChecked()]
-            item["value"] = [tag for tag, cb in value_checks.items() if cb.isChecked()]
-            item["tags"] = [tag for tag, cb in tag_checks.items() if cb.isChecked()]
+            for item in items:
+                if nominal_field.text(): item["nominal"] = nominal_field.text()
+                if lifetime_field.text(): item["lifetime"] = lifetime_field.text()
+                if restock_field.text(): item["restock"] = restock_field.text()
+                if min_field.text(): item["min"] = min_field.text()
+                if quantmin_field.text(): item["quantmin"] = quantmin_field.text()
+                if quantmax_field.text(): item["quantmax"] = quantmax_field.text()
+                if cost_field.text(): item["cost"] = cost_field.text()
+                item["flags"] = {flag: "1" if cb.isChecked() else item["flags"].get(flag, "0") for flag, cb in flag_fields.items()}
+                if category_field.currentText(): item["category"] = category_field.currentText()
+                item["usage"] = [tag for tag, cb in usage_checks.items() if cb.isChecked()]
+                item["value"] = [tag for tag, cb in value_checks.items() if cb.isChecked()]
+                item["tags"] = [tag for tag, cb in tag_checks.items() if cb.isChecked()]
             self.refresh_table()
             dialog.accept()
 
-        apply_btn = QPushButton("Apply")
+        apply_btn = QPushButton("Apply" if not batch else "Apply to All")
         apply_btn.clicked.connect(apply_changes)
         layout.addWidget(apply_btn)
 
