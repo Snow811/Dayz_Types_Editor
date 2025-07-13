@@ -13,7 +13,7 @@ A GUI-based tool for editing `types.xml` and managing loot configurations in Day
 
 ## Releases
 
-A prebuilt Windows `.exe` version is available under the [Releases](https://github.com/your-repo/releases) section.
+A prebuilt Windows `.exe` version is available under the [Releases](https://github.com/Snow811/Dayz_Types_Editor/releases) section.
 
 ### How to Use
 
