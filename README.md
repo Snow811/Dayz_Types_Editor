@@ -9,7 +9,10 @@ A GUI-based tool for editing `types.xml` and managing loot configurations in Day
 - Edit flags, category, usage tags, value tags, and tag names
 - Auto-load limits config files on startup
 - Double-click table entries to open the edit dialog
-- Save updated `types.xml` with clean formatting and correct values
+- Select multiple rows for batch editing
+- Scrollable and resizable edit dialogs for small screens
+- Mouse wheel scrolling disabled on category dropdown to prevent accidental changes
+- Dark theme for improved readability
 
 ## Releases
 
@@ -69,6 +72,8 @@ python main.py
 - The tool preserves all field values and writes clean XML using `lxml`.
 - Self-closing tags are avoided; all loot parameters are saved as value tags.
 - Limits config files are optional but recommended for tag filtering.
+- Category dropdown is protected from accidental mouse wheel changes.
+- Dialogs are scrollable and resizable for better usability on small screens.
 
 ## License
 
