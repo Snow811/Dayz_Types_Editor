@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
     QTableWidget, QTableWidgetItem, QLineEdit, QLabel, QApplication,
-    QDialog, QMessageBox, QCheckBox, QComboBox, QGridLayout
+    QDialog, QMessageBox, QCheckBox, QComboBox, QGridLayout, QScrollArea
 )
 from PyQt5.QtCore import Qt
 from types_parser import load_types, save_types
@@ -121,7 +121,13 @@ class TypesEditor(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle(f"Edit: {item['name']}")
         dialog.resize(600, 800)
-        layout = QVBoxLayout(dialog)
+        dialog.setSizeGripEnabled(True)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
 
         def make_field(label, key):
             layout.addWidget(QLabel(label))
@@ -190,6 +196,12 @@ class TypesEditor(QWidget):
         apply_btn = QPushButton("Apply")
         apply_btn.clicked.connect(apply_changes)
         layout.addWidget(apply_btn)
+
+        scroll.setWidget(container)
+
+        dialog_layout = QVBoxLayout()
+        dialog_layout.addWidget(scroll)
+        dialog.setLayout(dialog_layout)
 
         dialog.exec_()
 
