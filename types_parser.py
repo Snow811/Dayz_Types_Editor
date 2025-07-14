@@ -34,7 +34,7 @@ def load_types(path):
         for tag in type_elem.findall("usage"):
             item["usage"].append(tag.get("name", ""))
         for tag in type_elem.findall("value"):
-            item["value"].append(tag.get("name", ""))
+            item["value"].append(tag.get("name") or tag.get("user", ""))
         for tag in type_elem.findall("tag"):
             item["tags"].append(tag.get("name", ""))
 
@@ -46,7 +46,7 @@ def get_text(elem, tag):
     child = elem.find(tag)
     return child.text if child is not None and child.text is not None else ""
 
-def save_types(items, tree, path):
+def save_types(items, tree, path, map_mode="vanilla"):
     root = tree.getroot()
     root.clear()
 
@@ -72,11 +72,15 @@ def save_types(items, tree, path):
         if item["category"]:
             ET.SubElement(type_elem, "category").set("name", item["category"])
 
-        for tag in item["usage"]:
-            ET.SubElement(type_elem, "usage").set("name", tag)
-        for tag in item["value"]:
-            ET.SubElement(type_elem, "value").set("name", tag)
-        for tag in item["tags"]:
-            ET.SubElement(type_elem, "tag").set("name", tag)
+        if map_mode == "vanilla":
+            for tag in item["usage"]:
+                ET.SubElement(type_elem, "usage").set("name", tag)
+            for tag in item["value"]:
+                ET.SubElement(type_elem, "value").set("name", tag)
+        elif map_mode == "namalsk":
+            for tag in item["value"]:
+                ET.SubElement(type_elem, "value").set("user", tag)
+            for tag in item["tags"]:
+                ET.SubElement(type_elem, "tag").set("name", tag)
 
     tree.write(path, pretty_print=True, xml_declaration=True, encoding="utf-8")
