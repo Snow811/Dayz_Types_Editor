@@ -2,17 +2,28 @@
 
 A GUI-based tool for editing `types.xml` and managing loot configurations in DayZ. Supports integration with `cfglimitsdefinition.xml` and `cfglimitsdefinitionuser.xml` for tag-based filtering and editing.
 
-## Features
+## 🚀 Features
 
-- Load and edit `types.xml` entries
-- View and modify loot parameters: `nominal`, `lifetime`, `restock`, `min`, `quantmin`, `quantmax`, `cost`
-- Edit flags, category, usage tags, value tags, and tag names
-- Auto-load limits config files on startup
-- Double-click table entries to open the edit dialog
-- Select multiple rows for batch editing
-- Scrollable and resizable edit dialogs for small screens
-- Mouse wheel scrolling disabled on category dropdown to prevent accidental changes
-- Dark theme for improved readability
+- Search and filter by Name, Category, Usage, Value, or Tags
+- Sortable columns with one-click sorting
+- Reset Sort button to restore original order and clear sort indicators
+- Map Mode toggle for Vanilla vs Namalsk logic
+- Batch editing of multiple entries
+- Dynamic tag handling:
+  - Vanilla: uses `<usage name="..."/>` and `<value name="..."/>`
+  - Namalsk: uses `<tag name="..."/>` and `<value user="TierX"/>`
+- Clear Selection button to deselect all rows
+- Reset Filter button to clear search and restore default field
+- Save to XML with clean formatting and map-aware tag output
+
+## 🗺️ Map Mode Support
+
+| Mode     | Usage Tags        | Value Tags             | Tag Names         |
+|----------|-------------------|------------------------|-------------------|
+| Vanilla  | `<usage name="X"/>` | `<value name="X"/>`     | _(not used)_      |
+| Namalsk  | _(not used)_        | `<value user="TierX"/>` | `<tag name="X"/>` |
+
+Switch modes using the **Map Mode** dropdown in the top toolbar.
 
 ## Releases
 
@@ -74,6 +85,13 @@ python main.py
 - Limits config files are optional but recommended for tag filtering.
 - Category dropdown is protected from accidental mouse wheel changes.
 - Dialogs are scrollable and resizable for better usability on small screens.
+
+## 💡 Tips
+
+- Use Reset Sort to undo column sorting  
+- Use Clear Selection to deselect all rows  
+- Switch between Vanilla and Namalsk modes to match your map logic  
+- All changes are saved in clean XML format with unused fields omitted
 
 ## License
 
