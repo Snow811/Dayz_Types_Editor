@@ -1,71 +1,82 @@
-from lxml import etree
+from lxml import etree as ET
 
-def load_types(file_path):
-    tree = etree.parse(file_path)
+def load_types(path):
+    tree = ET.parse(path)
     root = tree.getroot()
-
     items = []
-    for elem in root.findall("type"):
+
+    for type_elem in root.findall("type"):
         item = {
-            "name": elem.attrib.get("name", ""),
-            "nominal": get_text(elem, "nominal"),
-            "lifetime": get_text(elem, "lifetime"),
-            "restock": get_text(elem, "restock"),
-            "min": get_text(elem, "min"),
-            "quantmin": get_text(elem, "quantmin"),
-            "quantmax": get_text(elem, "quantmax"),
-            "cost": get_text(elem, "cost"),
-            "flags": get_flags(elem),
-            "category": get_attr(elem, "category", "name"),
-            "tags": get_multi(elem, "tag"),
-            "usage": get_multi(elem, "usage"),
-            "value": get_multi(elem, "value")
+            "name": type_elem.get("name", ""),
+            "nominal": get_text(type_elem, "nominal"),
+            "lifetime": get_text(type_elem, "lifetime"),
+            "restock": get_text(type_elem, "restock"),
+            "min": get_text(type_elem, "min"),
+            "quantmin": get_text(type_elem, "quantmin"),
+            "quantmax": get_text(type_elem, "quantmax"),
+            "cost": get_text(type_elem, "cost"),
+            "flags": {},
+            "category": "",
+            "usage": [],
+            "value": [],
+            "tags": []
         }
+
+        flags_elem = type_elem.find("flags")
+        if flags_elem is not None:
+            for attr in ["count_in_cargo", "count_in_hoarder", "count_in_map", "count_in_player", "crafted", "deloot"]:
+                item["flags"][attr] = flags_elem.get(attr, "0")
+
+        cat_elem = type_elem.find("category")
+        if cat_elem is not None:
+            item["category"] = cat_elem.get("name", "")
+
+        for tag in type_elem.findall("usage"):
+            item["usage"].append(tag.get("name", ""))
+        for tag in type_elem.findall("value"):
+            item["value"].append(tag.get("name", ""))
+        for tag in type_elem.findall("tag"):
+            item["tags"].append(tag.get("name", ""))
+
         items.append(item)
 
     return items, tree
 
 def get_text(elem, tag):
     child = elem.find(tag)
-    return child.text.strip() if child is not None and child.text else ""
+    return child.text if child is not None and child.text is not None else ""
 
-def get_attr(elem, tag, attr):
-    child = elem.find(tag)
-    return child.attrib.get(attr, "") if child is not None else ""
-
-def get_flags(elem):
-    flags_elem = elem.find("flags")
-    return {k: v for k, v in flags_elem.attrib.items()} if flags_elem is not None else {}
-
-def get_multi(elem, tag):
-    return [e.attrib["name"] for e in elem.findall(tag)]
-
-def save_types(items, tree, output_path):
-    root = etree.Element("types")
+def save_types(items, tree, path):
+    root = tree.getroot()
+    root.clear()
 
     for item in items:
-        type_elem = etree.SubElement(root, "type", name=item["name"])
+        type_elem = ET.SubElement(root, "type", name=item["name"])
 
         def add(tag):
-            val = str(item.get(tag, "")).strip()
-            sub = etree.SubElement(type_elem, tag)
-            sub.text = val
+            if item[tag]:
+                ET.SubElement(type_elem, tag).text = item[tag]
 
-        # Ordered value tags
-        for tag in ["nominal", "lifetime", "restock", "min", "quantmin", "quantmax", "cost"]:
-            add(tag)
+        add("nominal")
+        add("lifetime")
+        add("restock")
+        add("min")
+        add("quantmin")
+        add("quantmax")
+        add("cost")
 
-        etree.SubElement(type_elem, "flags", item.get("flags", {}))
-        etree.SubElement(type_elem, "category", {"name": item.get("category", "")})
+        flags_elem = ET.SubElement(type_elem, "flags")
+        for attr in ["count_in_cargo", "count_in_hoarder", "count_in_map", "count_in_player", "crafted", "deloot"]:
+            flags_elem.set(attr, item["flags"].get(attr, "0"))
 
-        for tag in item.get("tags", []):
-            etree.SubElement(type_elem, "tag", {"name": tag})
-        for usage in item.get("usage", []):
-            etree.SubElement(type_elem, "usage", {"name": usage})
-        for value in item.get("value", []):
-            etree.SubElement(type_elem, "value", {"name": value})
+        if item["category"]:
+            ET.SubElement(type_elem, "category").set("name", item["category"])
 
-    tree_str = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="utf-8")
+        for tag in item["usage"]:
+            ET.SubElement(type_elem, "usage").set("name", tag)
+        for tag in item["value"]:
+            ET.SubElement(type_elem, "value").set("name", tag)
+        for tag in item["tags"]:
+            ET.SubElement(type_elem, "tag").set("name", tag)
 
-    with open(output_path, "wb") as f:
-        f.write(tree_str)
+    tree.write(path, pretty_print=True, xml_declaration=True, encoding="utf-8")
