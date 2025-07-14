@@ -21,6 +21,7 @@ class TypesEditor(QWidget):
         self.items = []
         self.tree_obj = None
         self.types_path = ""
+        self.map_mode = "vanilla"
         self.tag_config = {
             "usage": [], "value": [],
             "categories": [], "tags": [],
@@ -45,6 +46,15 @@ class TypesEditor(QWidget):
         self.search_input = QLineEdit()
         self.search_input.textChanged.connect(self.filter_table)
         search_layout.addWidget(self.search_input)
+
+        self.search_field_selector = QComboBox()
+        self.search_field_selector.addItems(["Name", "Category", "Usage", "Value", "Tags"])
+        search_layout.addWidget(self.search_field_selector)
+
+        reset_filter_btn = QPushButton("Reset Filter")
+        reset_filter_btn.clicked.connect(self.reset_filter)
+        search_layout.addWidget(reset_filter_btn)
+
         layout.addLayout(search_layout)
 
         self.table = QTableWidget()
@@ -54,6 +64,7 @@ class TypesEditor(QWidget):
         ])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.MultiSelection)
+        self.table.setSortingEnabled(True)
         self.table.cellDoubleClicked.connect(self.edit_selected)
         layout.addWidget(self.table)
 
@@ -74,11 +85,43 @@ class TypesEditor(QWidget):
         batch_btn.clicked.connect(self.batch_edit_selected)
         btn_layout.addWidget(batch_btn)
 
+        clear_selection_btn = QPushButton("Clear Selection")
+        clear_selection_btn.clicked.connect(self.clear_table_selection)
+        btn_layout.addWidget(clear_selection_btn)
+
+        reset_sort_btn = QPushButton("Reset Sort")
+        reset_sort_btn.clicked.connect(self.reset_sorting)
+        btn_layout.addWidget(reset_sort_btn)
+
         save_btn = QPushButton("Save Types File")
         save_btn.clicked.connect(self.save_types_file)
         btn_layout.addWidget(save_btn)
 
+        btn_layout.addWidget(QLabel("Map Mode:"))
+        self.map_selector = QComboBox()
+        self.map_selector.addItems(["Vanilla", "Namalsk"])
+        self.map_selector.currentTextChanged.connect(self.set_map_mode)
+        btn_layout.addWidget(self.map_selector)
+
         layout.addLayout(btn_layout)
+
+    def set_map_mode(self, mode):
+        self.map_mode = mode.lower()
+        print(f"Map mode set to: {self.map_mode}")
+
+    def reset_filter(self):
+        self.search_input.clear()
+        self.search_field_selector.setCurrentText("Name")
+        self.filter_table()
+
+    def clear_table_selection(self):
+        self.table.clearSelection()
+
+    def reset_sorting(self):
+        self.table.setSortingEnabled(False)
+        self.table.horizontalHeader().setSortIndicator(-1, Qt.AscendingOrder)
+        self.refresh_table()
+        self.table.setSortingEnabled(True)
 
     def load_types_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select types.xml", "", "XML Files (*.xml)")
@@ -101,6 +144,16 @@ class TypesEditor(QWidget):
 
     def refresh_table(self):
         self.table.setRowCount(0)
+
+        if self.map_mode == "vanilla":
+            self.table.setHorizontalHeaderLabels([
+                "Name", "Nominal", "Lifetime", "Restock", "Min", "QuantMin", "QuantMax", "Cost", "Usage", "Value"
+            ])
+        else:
+            self.table.setHorizontalHeaderLabels([
+                "Name", "Nominal", "Lifetime", "Restock", "Min", "QuantMin", "QuantMax", "Cost", "Tags", "Value Tier"
+            ])
+
         for item in self.items:
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -112,14 +165,35 @@ class TypesEditor(QWidget):
             self.table.setItem(row, 5, QTableWidgetItem(item["quantmin"]))
             self.table.setItem(row, 6, QTableWidgetItem(item["quantmax"]))
             self.table.setItem(row, 7, QTableWidgetItem(item["cost"]))
-            self.table.setItem(row, 8, QTableWidgetItem(", ".join(item["usage"])))
-            self.table.setItem(row, 9, QTableWidgetItem(", ".join(item["value"])))
+
+            if self.map_mode == "vanilla":
+                self.table.setItem(row, 8, QTableWidgetItem(", ".join(item["usage"])))
+                self.table.setItem(row, 9, QTableWidgetItem(", ".join(item["value"])))
+            else:
+                self.table.setItem(row, 8, QTableWidgetItem(", ".join(item["tags"])))
+                self.table.setItem(row, 9, QTableWidgetItem(", ".join(item["value"])))
+
 
     def filter_table(self):
         text = self.search_input.text().lower()
+        field = self.search_field_selector.currentText().lower()
+
         for row in range(self.table.rowCount()):
-            item_name = self.table.item(row, 0).text().lower()
-            self.table.setRowHidden(row, text not in item_name)
+            item = self.items[row]
+            value = ""
+
+            if field == "name":
+                value = item["name"]
+            elif field == "category":
+                value = item["category"]
+            elif field == "usage":
+                value = ", ".join(item["usage"])
+            elif field == "value":
+                value = ", ".join(item["value"])
+            elif field == "tags":
+                value = ", ".join(item["tags"])
+
+            self.table.setRowHidden(row, text not in value.lower())
 
     def edit_selected(self, row=None, column=None):
         selected = row if row is not None else self.table.currentRow()
@@ -185,29 +259,30 @@ class TypesEditor(QWidget):
         if not batch:
             category_field.setCurrentText(items[0]["category"])
 
-        def make_multiselect_grid(label, options):
+        def make_multiselect_grid(label, options, selected=None):
             layout.addWidget(QLabel(label))
             grid = QGridLayout()
             checkbox_dict = {}
             cols = 3
             for i, opt in enumerate(options):
                 cb = QCheckBox(opt)
+                if selected and opt in selected:
+                    cb.setChecked(True)
                 grid.addWidget(cb, i // cols, i % cols)
                 checkbox_dict[opt] = cb
             layout.addLayout(grid)
             return checkbox_dict
 
-        usage_checks = make_multiselect_grid("Usage Tags", self.tag_config.get("usage", []))
-        value_checks = make_multiselect_grid("Value Tags", self.tag_config.get("value", []))
-        tag_checks = make_multiselect_grid("Tag Names", self.tag_config.get("tags", []))
+        usage_checks = {}
+        value_checks = {}
+        tag_checks = {}
 
-        if not batch:
-            for tag, cb in usage_checks.items():
-                cb.setChecked(tag in items[0]["usage"])
-            for tag, cb in value_checks.items():
-                cb.setChecked(tag in items[0]["value"])
-            for tag, cb in tag_checks.items():
-                cb.setChecked(tag in items[0]["tags"])
+        if self.map_mode == "vanilla":
+            usage_checks = make_multiselect_grid("Usage Tags", self.tag_config.get("usage", []), None if batch else items[0]["usage"])
+            value_checks = make_multiselect_grid("Value Tags", self.tag_config.get("value", []), None if batch else items[0]["value"])
+        elif self.map_mode == "namalsk":
+            value_checks = make_multiselect_grid("Value Tiers", self.tag_config.get("value", []), None if batch else items[0]["value"])
+            tag_checks = make_multiselect_grid("Tag Names", self.tag_config.get("tags", []), None if batch else items[0]["tags"])
 
         def apply_changes():
             for item in items:
@@ -241,5 +316,5 @@ class TypesEditor(QWidget):
     def save_types_file(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save types.xml", "types_updated.xml", "XML Files (*.xml)")
         if path:
-            save_types(self.items, self.tree_obj, path)
+            save_types(self.items, self.tree_obj, path, self.map_mode)
             QMessageBox.information(self, "Saved", f"File saved to {path}")
