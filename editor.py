@@ -316,5 +316,5 @@ class TypesEditor(QWidget):
     def save_types_file(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save types.xml", "types_updated.xml", "XML Files (*.xml)")
         if path:
-            save_types(self.items, self.tree_obj, path, self.map_mode)
+            save_types(self.items, self.tree_obj, path, self.map_mode, self.tag_config)
             QMessageBox.information(self, "Saved", f"File saved to {path}")

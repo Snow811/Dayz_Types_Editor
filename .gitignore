@@ -1,0 +1,16 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
+dist/
+*.exe
+
+# Config files (these might contain local paths)
+config.json
+
+# Temporary files
+/tmp/
