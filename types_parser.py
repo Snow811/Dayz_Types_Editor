@@ -37,6 +37,13 @@ def load_types(path):
             item["value"].append(tag.get("name") or tag.get("user", ""))
         for tag in type_elem.findall("tag"):
             item["tags"].append(tag.get("name", ""))
+        
+        # Handle user-defined tags
+        for user_tag in type_elem.findall("user"):
+            if user_tag.get("usage"):
+                item["usage"].append(user_tag.get("usage"))
+            if user_tag.get("value"):
+                item["value"].append(user_tag.get("value"))
 
         items.append(item)
 
@@ -46,7 +53,7 @@ def get_text(elem, tag):
     child = elem.find(tag)
     return child.text if child is not None and child.text is not None else ""
 
-def save_types(items, tree, path, map_mode="vanilla"):
+def save_types(items, tree, path, map_mode="vanilla", tag_config=None):
     root = tree.getroot()
     root.clear()
 
@@ -74,9 +81,17 @@ def save_types(items, tree, path, map_mode="vanilla"):
 
         if map_mode == "vanilla":
             for tag in item["usage"]:
-                ET.SubElement(type_elem, "usage").set("name", tag)
+                # Check if this is a user-defined alias
+                if tag_config and tag in tag_config.get("usage_aliases", {}):
+                    ET.SubElement(type_elem, "user").set("usage", tag)
+                else:
+                    ET.SubElement(type_elem, "usage").set("name", tag)
             for tag in item["value"]:
-                ET.SubElement(type_elem, "value").set("name", tag)
+                # Check if this is a user-defined alias
+                if tag_config and tag in tag_config.get("value_aliases", {}):
+                    ET.SubElement(type_elem, "user").set("value", tag)
+                else:
+                    ET.SubElement(type_elem, "value").set("name", tag)
         elif map_mode == "namalsk":
             for tag in item["value"]:
                 ET.SubElement(type_elem, "value").set("user", tag)
